@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
         }
       }else if (inode->type == T_FILE){
         if (expected_ref_count != actual_ref_count) {
-          fprintf(stderr,"bad reference count for file");
+          fprintf(stderr,"bad reference count for file\n");
           return 1;
         }
       }
@@ -154,7 +154,9 @@ int main(int argc, char **argv) {
         fprintf(stderr,"address used by inode but marked free in bitmap.\n");
         exit(1);
       }
-      if (in_use_blocks[i] == 0 && IS_BLOCK_ALLOC(i, sb, file_ptr)) {
+      // Special case if entire byte is marked allocated, then skip.
+      if ((in_use_blocks[i] == 0 && IS_BLOCK_ALLOC(i, sb, file_ptr))) {
+        debugf("bitmap for block %d = %x\n", i, 0xff &  (*((char*)file_ptr + (sb->bmapstart)*BSIZE + i/8)));
         fprintf(stderr,"bitmap marks block in use but it its not in use.\n");
         exit(1);
       }
@@ -227,7 +229,7 @@ int checkDir(ushort current, ushort parent) {
 
     // Check block is allocated
     if (!IS_BLOCK_ALLOC(c_inode->addrs[db_count], sb, file_ptr)){
-      fprintf(stderr,"here address used by inode but marked free in bitmap\n");
+      fprintf(stderr,"address used by inode but marked free in bitmap\n");
       exit(1);
     }
 
