@@ -89,12 +89,16 @@ int main(int argc, char **argv) {
     inode_refs = (short *)calloc(sb->ninodes, sizeof(short));
     in_use_blocks = (short*)calloc(sb->size, sizeof(short));
 
-    // check all allocated inodes
     uint i;
+    int starting_data_block = sb->size - sb->nblocks;
     debugf("file_ptr: %p, super: %p\n", file_ptr, sb);
     for(i = (sb->size - sb->nblocks); i < sb->size; i++) {
       debugf("bitmap for block %d = %x\n", i, 0xff &  (*((char*)file_ptr + (sb->bmapstart)*BSIZE + i/8)));
     }
+    // Check preallocated data blocks. System allocates x number of consecutive blocks at the start.
+    int preallocated;
+    for (preallocated = starting_data_block; IS_BLOCK_ALLOC(preallocated, sb, file_ptr); preallocated++){};
+    // check all allocated inodes
     for(i = 1; i < sb->ninodes; i++) {
 
       struct dinode* inode = GET_INODE(i, sb, file_ptr);
@@ -148,13 +152,14 @@ int main(int argc, char **argv) {
     }
 
     // Check data blocks are in use.
-    int starting_data_block = sb->size - sb->nblocks;
     for(i = starting_data_block; i < sb->size; i++) {
       if (in_use_blocks[i] != 0 && !IS_BLOCK_ALLOC(i, sb, file_ptr)) {
         fprintf(stderr,"address used by inode but marked free in bitmap.\n");
         exit(1);
       }
-      // Special case if entire byte is marked allocated, then skip.
+    }
+    // Special case if entire byte is marked allocated, then skip.
+    for(i = preallocated; i < sb->size; i++) {
       if ((in_use_blocks[i] == 0 && IS_BLOCK_ALLOC(i, sb, file_ptr))) {
         debugf("bitmap for block %d = %x\n", i, 0xff &  (*((char*)file_ptr + (sb->bmapstart)*BSIZE + i/8)));
         fprintf(stderr,"bitmap marks block in use but it its not in use.\n");
